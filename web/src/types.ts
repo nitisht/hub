@@ -236,6 +236,7 @@ export interface AvailabilityInfo {
 }
 
 export interface Prefs {
+  theme?: string;
   controlPanel: {
     selectedOrg?: string;
   };
