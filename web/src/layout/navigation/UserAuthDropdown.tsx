@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { AppCtx } from '../../context/AppCtx';
 import useOutsideClick from '../../hooks/useOutsideClick';
 import Image from '../common/Image';
-import DarkMode from './DarkMode';
+import ThemeMode from './ThemeMode';
 import LogOut from './LogOut';
 import styles from './UserAuthDropdown.module.css';
 
@@ -88,7 +88,7 @@ const UserAuthDropdown = (props: Props) => {
         </Link>
 
         <div className="dropdown-item">
-          <DarkMode />
+          <ThemeMode />
         </div>
 
         <LogOut className="mb-2" onSuccess={() => setOpenStatus(false)} privateRoute={props.privateRoute} />

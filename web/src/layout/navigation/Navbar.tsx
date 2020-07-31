@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 
 import { AppCtx } from '../../context/AppCtx';
 import SearchBar from '../common/SearchBar';
-import DarkMode from './DarkMode';
+import ThemeMode from './ThemeMode';
 import LogIn from './LogIn';
 import MobileSettings from './MobileSettings';
 import styles from './Navbar.module.css';
@@ -109,7 +109,7 @@ const Navbar = (props: Props) => {
                     </li>
 
                     <li className="nav-item ml-4 position-relative">
-                      <DarkMode darkVersion />
+                      <ThemeMode />
                     </li>
                   </>
                 ) : (

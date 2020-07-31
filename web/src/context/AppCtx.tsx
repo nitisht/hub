@@ -7,6 +7,7 @@ import { Prefs, Profile, UserFullName } from '../types';
 import history from '../utils/history';
 import isControlPanelSectionAvailable from '../utils/isControlPanelSectionAvailable';
 import lsStorage from '../utils/localStoragePreferences';
+import useSystemThemeMode from '../hooks/useSystemThemeMode';
 
 interface AppState {
   user: Profile | null | undefined;
@@ -29,7 +30,9 @@ type Action =
   | { type: 'updateUser'; user: UserFullName }
   | { type: 'updateOrg'; name: string }
   | { type: 'updateLimit'; limit: number }
-  | { type: 'updateTheme'; theme?: string };
+  | { type: 'updateTheme'; theme: string }
+  | { type: 'updateEfectiveTheme'; theme: string }
+  | { type: 'enableAutomaticTheme'; enabled: boolean };
 
 export const AppCtx = createContext<{
   ctx: AppState;
@@ -59,8 +62,16 @@ export function updateLimit(limit: number) {
   return { type: 'updateLimit', limit };
 }
 
-export function updateTheme(theme?: string) {
+export function updateTheme(theme: string) {
   return { type: 'updateTheme', theme };
+}
+
+export function updateEfectiveTheme(theme: string) {
+  return { type: 'updateTheme', theme };
+}
+
+export function enableAutomaticTheme(enabled: boolean) {
+  return { type: 'enableAutomaticTheme', enabled };
 }
 
 export async function refreshUserProfile(dispatch: React.Dispatch<any>, redirectUrl?: string) {
@@ -75,6 +86,10 @@ export async function refreshUserProfile(dispatch: React.Dispatch<any>, redirect
     dispatch({ type: 'signOut' });
   }
 }
+
+export const detectActiveThemeMode = (): string => {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+};
 
 function redirectToControlPanel(context: 'user' | 'org') {
   if (history.location.pathname.startsWith('/control-panel')) {
@@ -95,12 +110,30 @@ function updateSelectedOrg(currentPrefs: Prefs, name?: string): Prefs {
   };
 }
 
+function updateAutomaticTheme(currentPrefs: Prefs, enabled: boolean): Prefs {
+  return {
+    ...currentPrefs,
+    theme: {
+      ...currentPrefs.theme,
+      automatic: enabled,
+      efective: enabled ? detectActiveThemeMode() : currentPrefs.theme.configured,
+    },
+  };
+}
+
+function updateActiveStyleSheet(current: string, prev?: string) {
+  // import(`../themes/${current}.scss`).then();
+  document.body.setAttribute('data-theme', current);
+}
+
 export function appReducer(state: AppState, action: Action) {
   switch (action.type) {
     case 'signIn':
+      const userPrefs = lsStorage.getPrefs(action.profile.alias);
+      updateActiveStyleSheet(userPrefs.theme.efective || userPrefs.theme.configured);
       return {
         user: action.profile,
-        prefs: lsStorage.getPrefs(action.profile.alias),
+        prefs: userPrefs,
       };
     case 'unselectOrg':
       const unselectedOrgPrefs = updateSelectedOrg(state.prefs);
@@ -111,7 +144,9 @@ export function appReducer(state: AppState, action: Action) {
         prefs: unselectedOrgPrefs,
       };
     case 'signOut':
-      return { user: null, prefs: lsStorage.getPrefs() };
+      const guestPrefs = lsStorage.getPrefs();
+      updateActiveStyleSheet(guestPrefs.theme.efective || guestPrefs.theme.configured);
+      return { user: null, prefs: guestPrefs };
     case 'updateOrg':
       const newPrefs = updateSelectedOrg(state.prefs, action.name);
       lsStorage.setPrefs(newPrefs, state.user!.alias);
@@ -138,15 +173,51 @@ export function appReducer(state: AppState, action: Action) {
     case 'updateTheme':
       const updatedUserPrefs = {
         ...state.prefs,
-        theme: action.theme,
+        theme: {
+          configured: action.theme,
+          efective: action.theme,
+          automatic: false,
+        },
       };
       lsStorage.setPrefs(
         updatedUserPrefs,
         !isNull(state.user) && !isUndefined(state.user) ? state.user.alias : undefined
       );
+      updateActiveStyleSheet(action.theme, state.prefs.theme.efective);
+
       return {
         ...state,
         prefs: updatedUserPrefs,
+      };
+
+    case 'updateEfectiveTheme':
+      const updatedThemePrefs = {
+        ...state.prefs,
+        theme: {
+          ...state.prefs.theme,
+          efective: action.theme,
+        },
+      };
+      lsStorage.setPrefs(
+        updatedThemePrefs,
+        !isNull(state.user) && !isUndefined(state.user) ? state.user.alias : undefined
+      );
+      updateActiveStyleSheet(action.theme, state.prefs.theme.efective);
+
+      return {
+        ...state,
+        prefs: updatedThemePrefs,
+      };
+
+    case 'enableAutomaticTheme':
+      const updatedThemeUserPrefs = updateAutomaticTheme(state.prefs, action.enabled);
+      lsStorage.setPrefs(
+        updatedThemeUserPrefs,
+        !isNull(state.user) && !isUndefined(state.user) ? state.user.alias : undefined
+      );
+      return {
+        ...state,
+        prefs: updatedThemeUserPrefs,
       };
     case 'updateUser':
       lsStorage.updateAlias(state.user!.alias, action.user.alias);
@@ -168,6 +239,8 @@ function AppCtxProvider(props: Props) {
   useEffect(() => {
     refreshUserProfile(dispatch);
   }, []);
+
+  useSystemThemeMode(ctx.prefs.theme.automatic, ctx.prefs.theme.efective || 'light', dispatch);
 
   return <AppCtx.Provider value={{ ctx, dispatch }}>{props.children}</AppCtx.Provider>;
 }

@@ -8,7 +8,12 @@ interface PreferencesList {
 
 const LS_ITEM = 'prefs';
 const DEFAULT_SEARCH_LIMIT = 15;
-const DEFAULT_PREFS: Prefs = { search: { limit: DEFAULT_SEARCH_LIMIT }, controlPanel: {} };
+const DEFAULT_THEME = 'light';
+const DEFAULT_PREFS: Prefs = {
+  search: { limit: DEFAULT_SEARCH_LIMIT },
+  controlPanel: {},
+  theme: { configured: DEFAULT_THEME, automatic: false },
+};
 
 export class LocalStoragePreferences {
   private savedPreferences: PreferencesList = { guest: DEFAULT_PREFS };
@@ -58,15 +63,22 @@ export class LocalStoragePreferences {
   }
 
   public getPrefs(alias?: string): Prefs {
+    const guestPrefs = {
+      ...DEFAULT_PREFS,
+      ...this.savedPreferences.guest,
+    };
     if (!isUndefined(alias)) {
       if (!isUndefined(this.savedPreferences[alias])) {
-        return this.savedPreferences[alias];
+        return {
+          ...DEFAULT_PREFS,
+          ...this.savedPreferences[alias],
+        };
       } else {
-        this.setPrefs(this.savedPreferences.guest, alias);
-        return this.savedPreferences.guest;
+        this.setPrefs(guestPrefs, alias);
+        return guestPrefs;
       }
     } else {
-      return this.savedPreferences.guest;
+      return guestPrefs;
     }
   }
 }
